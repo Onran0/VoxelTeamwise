@@ -1,0 +1,7 @@
+{
+    "components": [
+        "voxel_teamwise:player_animator"
+    ],
+    "skeleton-name": "base:player",
+    "hitbox": [0.6, 1.8, 0.6]
+}

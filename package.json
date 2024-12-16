@@ -1,0 +1,10 @@
+{
+	"id": "voxel_teamwise",
+	"title": "Voxel Teamwise",
+	"description": "content package adds a multiplayer",
+	"version": "1.0",
+	"creator": "Onran",
+	"dependencies": [
+		"packet_api"
+	]
+}
