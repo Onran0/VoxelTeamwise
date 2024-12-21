@@ -19,6 +19,13 @@ local installedPacks
 function on_world_open()
 	installedPacks = packs.get_installed()
 
+	for i = 1, #installedPacks do
+		if installedPacks[i] == PACK_ID then
+			table.remove(installedPacks, i)
+			break
+		end
+	end
+
 	teamwise_packets_registry.register_packets()
 	client_packets_handler.add_base_handlers()
 

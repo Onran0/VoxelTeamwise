@@ -113,10 +113,34 @@ function client_handler:send_packet_to_players_in_loaded_area(packetId, packetDa
 end
 
 function client_handler.on_logged_in()
+    local nickname = self:get_nickname()
+
     self.teamwiseServer:log(
-        '['..self.server:get_client_address(self.clientId).."] '"..self:get_nickname()..
+        '['..self.server:get_client_address(self.clientId).."] '"..nickname..
         "' successfully joined the game and was spawned at coordinates { "..position[1]..
         ', '..position[2]..', '..position[3]..' }'
+    )
+
+    self.playersData:add_property_listener(nickname, "position",
+        function(position)
+            self.server:send_packet(self.clientId, PACK_ID..":packet_player_transform",
+                {
+                    clientId = self.clientId,
+                    position = position
+                }
+            )
+        end
+    )
+
+    self.playersData:add_property_listener(nickname, "rotation",
+        function(rotation)
+            self.server:send_packet(self.clientId, PACK_ID..":packet_player_transform",
+                {
+                    clientId = self.clientId,
+                    rotation = rotation
+                }
+            )
+        end
     )
 end
 

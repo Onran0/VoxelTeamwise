@@ -1,11 +1,11 @@
 local voxel_teamwise = require "voxel_teamwise"
 local commands_api = require "server/api/commands_api"
 
-local commands = { }
+local base_commands = { }
 
 local teamwiseServer
 
-function commands.add_commands()
+function base_commands.add_commands()
 	console.add_command(
 		"players-list",
 		"Shows a list of connected players",
@@ -240,4 +240,4 @@ function commands.add_commands()
 	)
 end
 
-return commands
+return base_commands

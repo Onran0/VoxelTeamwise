@@ -1,3 +1,8 @@
+local constants = require "constants"
+local player_compat = require "content_compat/player_compat"
+local chunk_util = require "util/chunk_util"
+local commands_api = require "server/api/commands_api"
+
 local client_packets_handler = { }
 
 local PACK_ID = "voxel_teamwise"
@@ -8,12 +13,6 @@ local allowedPacketsBeforeLogin =
     PACK_ID..":packet_content_info",
 	PACK_ID..":packet_ping"
 }
-
-local constants = require "constants"
-
-local player_compat = require "content_compat/player_compat"
-
-local chunk_util = require "util/chunk_util"
 
 local teamwise_packets_registry = require "packets/teamwise_packets_registry"
 
@@ -88,6 +87,8 @@ function client_packets_handler:handle_packet_block_changed_by_player(packet)
 end
 
 function client_packets_handler:handle_packet_player_transform(packet)
+    player_compat.set_enabled_emit(false)
+
     if packet.position then
         player.set_pos(self.clientHandler:get_player_id(), unpack(packet.position))
     end
@@ -95,6 +96,8 @@ function client_packets_handler:handle_packet_player_transform(packet)
     if packet.rotation then
         player.set_rot(self.clientHandler:get_player_id(), unpack(packet.rotation))
     end
+
+    player_compat.set_enabled_emit(true)
 end
 
 function client_packets_handler:handle_packet_selected_slot_changed(slot)
@@ -108,6 +111,44 @@ function client_packets_handler:handle_packet_selected_slot_changed(slot)
             itemId = player_compat.get_selected_item_id(pid)
         }
     )
+end
+
+function client_packets_handler:handle_packet_command(command)
+    local pid = self.clientHandler:get_player_id()
+
+    local x,y,z = player.get_pos(pid)
+
+    console.set('pos.x', x)
+    console.set('pos.y', y)
+    console.set('pos.z', z)
+
+    local pentity = player.get_entity(pid)
+
+    if pentity ~= 0 then
+        console.set('entity.id', pentity)
+    end
+
+    local sentity = player.get_selected_entity(pid)
+
+    if sentity ~= nil then
+        console.set('entity.selected', sentity)
+    end
+
+    commands_api.set_invoker_player_id(pid)
+
+    commands_api.override_console_functions()
+
+    local status, result = pcall(console.execute, command)
+
+    commands_api.restore_console_functions()
+
+    if result then
+        console.log(result)
+
+        self.server:send_packet(self.clientId, PACK_ID..":packet_chat", tostring(result))
+    end
+
+    commands_api.reset_invoker_info()
 end
 
 function client_packets_handler.add_handler(packetId, handler)
