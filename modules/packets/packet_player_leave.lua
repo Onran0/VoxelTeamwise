@@ -2,16 +2,16 @@ local packet_player_leave = { }
 
 function packet_player_leave.write(data, buffer)
 	buffer:put_uint16(data.clientId)
-	buffer:put_bool(data.isError)
+	buffer:put_bool(data.dueToError)
 end
 
 function packet_player_leave.read(buffer)
-	local clientId, isError = buffer:get_uint16(), buffer:get_bool()
+	local clientId, dueToError = buffer:get_uint16(), buffer:get_bool()
 
 	return
 	{
 		clientId = clientId,
-		isError = isError
+		dueToError = dueToError
 	}
 end
 

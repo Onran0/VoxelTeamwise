@@ -9,9 +9,9 @@ function packet_player_transform.write(data, buffer, isServer)
 
 	buffer:put_byte(dirtyBits)
 	
-	if data.position then buffer_ext.put_vec3f(buffer, data.position) end
+	if data.position then buffer_ext.put_vec3f32(buffer, data.position) end
 
-	if data.rotation then buffer_ext.put_vec3f(buffer, data.rotation) end
+	if data.rotation then buffer_ext.put_vec3f32(buffer, data.rotation) end
 end
 
 function packet_player_transform.read(buffer, isServer)
@@ -22,11 +22,11 @@ function packet_player_transform.read(buffer, isServer)
 	local dirtyBits = buffer:get_byte()
 
 	if bit.band(dirtyBits, POSITION) ~= 0 then
-		data.position = buffer_ext.get_vec3f(buffer)
+		data.position = buffer_ext.get_vec3f32(buffer)
 	end
 
 	if bit.band(dirtyBits, ROTATION) ~= 0 then
-		data.rotation = buffer_ext.get_vec3f(buffer)
+		data.rotation = buffer_ext.get_vec3f32(buffer)
 	end
 
 	return data

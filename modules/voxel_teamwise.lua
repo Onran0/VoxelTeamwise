@@ -1,4 +1,5 @@
-local player_ext = require "player_ext"
+local player_compat = require "content_compat/player_compat"
+local block_compat = require "content_compat/block_compat"
 
 local teamwise_server = require "server/teamwise_server"
 
@@ -16,14 +17,24 @@ function voxel_teamwise.close_server()
 	if not server then error "server is not started" end
 
 	server:close()
-	events.emit(PACK_ID..":server.closed", server)
+
+	local status, result = pcall(events.emit, PACK_ID..":server.closed", server)
+
+	if not status then print(result) end
+
+	sever = nil
 end
 
 function voxel_teamwise.close_client()
 	if not client then error "client is not started" end
 
 	client:disconnect()
-	events.emit(PACK_ID..":client.closed", clint)
+
+	local status, result = pcall(events.emit, PACK_ID..":client.closed", client)
+
+	if not status then print(result) end
+
+	client = nil
 end
 
 function voxel_teamwise.start_server(settings)
@@ -33,7 +44,8 @@ function voxel_teamwise.start_server(settings)
 
 	server = teamwise_server:start(settings)
 
-	player_ext.set_clients_data(server.clientsData)
+	player_compat.set_players_data(server.playersData)
+	block_compat.set_callbacks(require("server/callbacks/blocks_callbacks"):new(server))
 
 	events.emit(PACK_ID..":server.started", server)
 end
@@ -46,6 +58,14 @@ function voxel_teamwise.start_client(address, port)
 	error "W.I.P"
 
 	events.emit(PACK_ID..":client.started", client)
+end
+
+function voxel_teamwise.close_client_or_server()
+	if client then
+		voxel_teamwise.close_client()
+	elseif server then
+		voxel_teamwise.close_server()
+	end
 end
 
 return voxel_teamwise

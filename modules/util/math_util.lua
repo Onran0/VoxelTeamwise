@@ -37,7 +37,7 @@ function math_util.vecn_equals(v1, v2)
 	return true
 end
 
-function math_util.euler_to_mat4(vec)
+function math_util.rotation_matrix(vec)
 	return
 	mat4.rotate(
 		mat4.rotate(

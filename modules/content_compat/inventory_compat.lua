@@ -1,15 +1,10 @@
 local PLAYER_INVENTORY_SIZE = 10 * 4
 
-local __inventory_set = inventory.set
-local __inventory_add = inventory.add
-local __inventory_bind_block = inventory.bind_block
-local __inventory_remove = inventory.remove
-local __inventory_move = inventory.move
-local __inventory_move_range = inventory.move_range
-
 local data_buffer = require "core:data_buffer"
-
 local inventory_struct = require "struct/inventory_struct"
+local compat_core = require "content_compat/compat_core"
+
+local _inventory = compat_core.copy_library("inventory")
 
 local inventory_compat = { }
 
@@ -40,7 +35,7 @@ function inventory_compat.remove_player_inventory(playerId)
 	inventoryIdToPlayerIdTable[inventoryId] = nil
 	playerIdToInventoryIdTable[playerId] = nil
 
-	__inventory_remove(inventoryId)
+	_inventory.remove(inventoryId)
 end
 
 function inventory_compat.get_player_inventory(playerId)
@@ -66,7 +61,7 @@ function inventory.remove(invid)
 		error "unable to delete player inventory"
 	end
 
-	__inventory_remove(invid)
+	_inventory.remove(invid)
 end
 
 function inventory.bind_block(invid, x, y, z)
@@ -74,7 +69,7 @@ function inventory.bind_block(invid, x, y, z)
 		error "unable to bind player inventory to block"
 	end
 
-	__inventory_bind_block(invid, x, y, z)
+	_inventory.bind_block(invid, x, y, z)
 end
 
 local function updateInventory(invid)
@@ -84,7 +79,7 @@ local function updateInventory(invid)
 end
 
 function inventory.add(invid, itemid, count)
-	local remainder = __inventory_add(invid, itemid, count)
+	local remainder = _inventory.add(invid, itemid, count)
 
 	updateInventory(invid)
 
@@ -92,20 +87,20 @@ function inventory.add(invid, itemid, count)
 end
 
 function inventory.set(invid, slot, itemid, count)
-	__inventory_set(invid, slot, itemid, count)
+	_inventory.set(invid, slot, itemid, count)
 
 	updateInventory(invid)
 end
 
 function inventory.move(invA, slotA, invB, slotB)
-	__inventory_move(invA, slotA, invB, slotB)
+	_inventory.move(invA, slotA, invB, slotB)
 
 	updateInventory(invA)
 	updateInventory(invB)
 end
 
 function inventory.move_range(invA, slotA, invB, rangeBegin, rangeEnd)
-	__inventory_move(invA, slotA, rangeBegin, rangeEnd)
+	_inventory.move(invA, slotA, rangeBegin, rangeEnd)
 
 	updateInventory(invA)
 	updateInventory(invB)

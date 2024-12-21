@@ -11,11 +11,9 @@ function packet_player_inventory_changed.write(data, buffer)
 end
 
 function packet_player_inventory_changed.read(buffer)
-	local inventory = inventory_struct.deserialize(buffer)
-
 	return
 	{
-		inventory = inventory
+		inventory = inventory_struct.deserialize(buffer)
 	}
 end
 

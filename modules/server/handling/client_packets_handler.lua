@@ -4,7 +4,8 @@ local PACK_ID = "voxel_teamwise"
 
 local allowedPacketsBeforeLogin =
 {
-	PACK_ID..":packet_login",
+	PACK_ID..":packet_handshake",
+    PACK_ID..":packet_content_info",
 	PACK_ID..":packet_ping"
 }
 
@@ -29,6 +30,7 @@ function client_packets_handler:new(handler)
     self.playersData = handler.playersData
     self.commonDisconnect = false
     self.chunksManager = handler.chunksManager
+    self.loginHandler = handler.loginHandler
 
 	return obj
 end
@@ -41,68 +43,17 @@ end
 
 function client_packets_handler:handle_packet_ping(packet) self.clientHandler.pingHandler:handle_ping(packet) end
 
+function client_packets_handler:handle_packet_handshake(packet)
+    self.loginHandler:handle_handshake(packet)
+end
+
+function client_packets_handler:handle_packet_content_info(packet)
+    self.loginHandler:handle_content_info(packet)
+end
+
 function client_packets_handler:handle_packet_disconnect()
     self.clientHandler.commonDisconnect = true
     self.server:close_connection(self.clientId, "client disconnected")
-end
-
-function client_packets_handler:handle_packet_login(packet)
-    if self.clientHandler.loggedIn then
-        self.clientHandler:kick("already logged in")
-    elseif packet.protocolVersion > constants.protocolVersion then
-        self.clientHandler:kick("outdated server")
-    elseif packet.protocolVersion < constants.protocolVersion then
-        self.clientHandler:kick("outdated client")
-    elseif self.teamwiseServer:get_client_id_by_nickname(packet.nickname) then
-        self.clientHandler:kick("a client with that name is already logged in")
-    else
-        local address = server:get_client_address(self.clientId)
-
-        if self.teamwiseServer:is_banned_name(packet.nickname) then
-            self.clientHandler:kick("banned by name: "..self.teamwiseServer:get_ban_reason_by_name(packet.nickname))
-        elseif self.teamwiseServer:is_banned_address(address) then
-            self.clientHandler:kick("banned by address: "..self.teamwiseServer:get_ban_reason_by_address(address))
-        elseif
-            self.teamwiseServer.settings.whiteListEnabled and
-            not self.teamwiseServer:is_name_in_white_list(packet.nickname) and
-            not self.teamwiseServer:is_address_in_white_list(address)
-        then
-            self.clientHandler:kick("you are not on the whitelist")
-        else
-            self.clientHandler.loggedIn = true
-
-            local nickname = packet.nickname
-
-            local position = self.playersData:get(nickname, "position", self.teamwiseServer.globalData.defaultSpawnpoint)
-            local rotation = self.playersData:get(nickname, "rotation", { 0, 0, 0 })
-            local inventory = self.playersData:get(nickname, "inventory", { })
-
-            player_compat.spawn_player(
-                self.clientId,
-                nickname,
-                position,
-                rotation,
-                inventory,
-                self.playersData:get(nickname, "spawnData")
-            )
-
-            local pid = self.clientHandler:get_player_id()
-
-            for _, clientId in ipairs(self.server:get_all_clients_ids()) do
-                self.server:send_packet(clientId, PACK_ID..":packet_player_joined",
-                    {
-                        clientId = self.clientId,
-                        nickname = packet.nickname,
-                        position = position,
-                        rotation = rotation,
-                        isSelf = self.clientId == clientId
-                    }
-                )
-            end
-
-            self.clientHandler:on_logged_in()
-        end
-    end
 end
 
 function client_packets_handler:handle_packet_chat(message)
@@ -122,7 +73,7 @@ function client_packets_handler:handle_packet_block_states_updated(packet)
     self.clientHandler:send_packet_to_players_in_loaded_area(PACK_ID..":packet_block_states_update", packet)
 end
 
-function client_packets_handler:handle_packet_block_placed(packet)
+function client_packets_handler:handle_packet_block_changed_by_player(packet)
     local x, y, z = packet.position[1], packet.position[2], packet.position[3]
 
     chunk_util.load_chunk(unpack(self.chunksManager.currentChunk))
@@ -134,20 +85,9 @@ function client_packets_handler:handle_packet_block_placed(packet)
     end
 
     chunk_util.unload_chunk()
-    
-    self.clientHandler:send_packet_to_players_in_loaded_area(PACK_ID..":packet_block_changed",
-        {
-            clientId = self.clientId,
-            blockId = packet.blockId,
-            states = packet.states,
-            position = packet.position
-        }
-    )
 end
 
 function client_packets_handler:handle_packet_player_transform(packet)
-    player_compat.set_enabled_emit(false)
-
     if packet.position then
         player.set_pos(self.clientHandler:get_player_id(), unpack(packet.position))
     end
@@ -155,13 +95,18 @@ function client_packets_handler:handle_packet_player_transform(packet)
     if packet.rotation then
         player.set_rot(self.clientHandler:get_player_id(), unpack(packet.rotation))
     end
+end
 
-    player_compat.set_enabled_emit(true)
+function client_packets_handler:handle_packet_selected_slot_changed(slot)
+    local pid = self.clientHandler:get_player_id()
 
-    self.clientHandler:send_packet_to_players_in_loaded_area(
-        PACK_ID..":packet_player_transform",
-        packet,
-        { self.clientId }
+    player_compat.set_selected_slot(pid, slot)
+
+    self.server:send_packet_to_all(PACK_ID..":packet_player_selected_item_changed",
+        {
+            clientId = self.clientId,
+            itemId = player_compat.get_selected_item_id(pid)
+        }
     )
 end
 

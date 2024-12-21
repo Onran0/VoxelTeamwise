@@ -2,6 +2,7 @@ local player_compat = require "content_compat/player_compat"
 
 local client_chunks_manager = require "server/handling/client_chunks_manager"
 local client_packets_handler = require "server/handling/client_packets_handler"
+local login_handler = require "server/handling/login_handler"
 local ping_handler = require "server/handling/ping_handler"
 
 local teamwise_packets_registry = require "packets/teamwise_packets_registry"
@@ -23,6 +24,7 @@ function client_handler:new(teamwiseServer, clientId)
     self.chunksManager = client_chunks_manager:new(self)
     self.pingHandler = ping_handler:new(self)
     self.packetsHandler = client_packets_handler:new(self)
+    self.loginHandler = login_handler:new(self)
 
 	return obj
 end
@@ -31,13 +33,41 @@ function client_handler:get_ping()
     return self.pingHandler:get_ping()
 end
 
+function client_handler:tick()
+    self.server:send_packet(self.clientId, PACK_ID..":packet_world_time", world.get_day_time())
+    self:pingHandler:tick()
+
+    local pid = self:get_player_id()
+
+    local pos, rot = player.get_pos(pid), player.get_rot(pid)
+
+    if
+        pos ~= self.prevPos or
+        rot ~= self.prevRot
+    then
+        self:send_packet_to_players_in_loaded_area(PACK_ID..":packet_player_transform",
+            {
+                clientId = self.clientId,
+                position = pos ~= self.prevPos and pos,
+                rotation = rot ~= self.prevRot and rot
+            }
+        )
+
+        self.prevPos = pos
+        self.prevRot = rot
+    end
+end
+
 function client_handler:update()
-    self:pingHandler:update()
     self.chunksManager:update()
 end
 
 function client_handler:get_player_id()
-    return player_compat.get_player_id(self.clientId)
+    if not self.playerId then
+        self.playerId = player_compat.get_player_id(self.clientId)
+    end
+    
+    return self.playerId
 end
 
 function client_handler:get_nickname()
@@ -45,14 +75,21 @@ function client_handler:get_nickname()
 end
 
 function client_handler:on_disconnected(cause)
-    player_compat.remove_player(self.clientId)
+    if self.loggedIn then
+        player_compat.remove_player(self:get_player_id())
 
-    self.server:send_packet_to_all(PACK_ID..":packet_player_leave",
-        {
-            clientId = self.clientId,
-            isError = not self.commonDisconnect
-        }
-    )
+        self.server:send_packet_to_all(PACK_ID..":packet_player_leave",
+            {
+                clientId = self.clientId,
+                dueToError = not self.commonDisconnect
+            }
+        )
+
+        self.teamwiseServer:log(
+            "player '"..self:get_nickname().."' disconnected from the server"..
+            (not self.commonDisconnect and " due to error" or '')
+        )
+    end
 end
 
 function client_handler:kick(reason, byError)
@@ -61,10 +98,12 @@ function client_handler:kick(reason, byError)
     self.server:close_connection(self.clientId, "kicked: "..reason)
 end
 
-function client_handler:send_packet_to_players_in_loaded_area(packetId, packetData, except)
+function client_handler:send_packet_to_players_in_loaded_area(packetId, packetData, except, includeSelf)
+    if not includeSelf then table.insert(except, self.clientId) end
+
     for _, clientId in ipairs(self.server:get_all_clients_ids()) do
         if not table.has(except, clientId) then
-            local x, _, z = player.get_pos(self:get_player_id())
+            local x, _, z = player.get_pos(player_compat.get_player_id(clientId))
 
             if self.chunksManager:is_in_loaded_area(x, z) then
                 self.server:send_packet(clientId, packetId, packetData)
@@ -73,14 +112,12 @@ function client_handler:send_packet_to_players_in_loaded_area(packetId, packetDa
     end
 end
 
-function client_handler:__add_properties_listener()
-
-end
-
 function client_handler.on_logged_in()
-    self.teamwiseServer:log("client with id "..self.clientId.." successfully logged in as "..self:get_nickname())
-
-    self:__add_properties_listener()
+    self.teamwiseServer:log(
+        '['..self.server:get_client_address(self.clientId).."] '"..self:get_nickname()..
+        "' successfully joined the game and was spawned at coordinates { "..position[1]..
+        ', '..position[2]..', '..position[3]..' }'
+    )
 end
 
 return client_handler

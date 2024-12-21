@@ -24,9 +24,11 @@ function client_chunks_manager:update()
 
     local chunks, nodes = chunk_util.get_chunks_positions_in_radius(cx, cz, self.teamwiseServer.settings.chunksLoadingDistance)
 
-    for hash, pos in pairs(self.loadedChunks) do
-        if not nodes[hash] then
-            self:unload_chunk_for_client(pos[1], pos[2])
+    for i = 1, #self.loadedChunks do
+        local chunkPos = self.loadedChunks[i]
+
+        if not nodes[chunk_util.get_hash_of_chunk_position(chunkPos[1], chunkPos[2])] then
+            self:unload_chunk_for_client(chunkPos[1], chunkPos[2])
         end
     end
 
@@ -40,13 +42,7 @@ function client_chunks_manager:update()
 end
 
 function client_chunks_manager:is_in_loaded_area(x, z)
-    x, z = chunk_util.block_position_to_chunk_position(x, z)
-
-    for i = 1, #self.loadedChunks do
-        if x == self.loadedChunks[i][1] and z == self.loadedChunks[i][2] then return true end
-    end
-
-    return false
+    return chunk_util.is_block_position_inside_chunks(x, z, self.loadedChunks)
 end
 
 function client_chunks_manager:is_chunk_loaded_for_client(cx, cz)

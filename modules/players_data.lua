@@ -51,9 +51,9 @@ function players_data:has_player_data(nickname)
 	return self.data[nickname] ~= nil
 end
 
-function players_data:set_property_listener(key, listener, nickname)
+function players_data:add_property_listener(nickname, key, listener)
 	if nickname then
-		if self.listenersByName[nickname] then
+		if not self.listenersByName[nickname] then
 			self.listenersByName[nickname] = { }
 		end
 

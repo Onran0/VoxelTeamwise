@@ -8,6 +8,7 @@ return
 		globalDataFile = "global_data.vcbjson",
 		playersDataFolder = "players",
 		banListFile = "ban_list.json",
-		whiteListFile = "white_list.json"
+		whiteListFile = "whitelist.json",
+		opsListFile = "ops.txt"
 	}
 }

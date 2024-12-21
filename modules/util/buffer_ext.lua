@@ -1,11 +1,3 @@
-local MAX_UINT16 = 2^16-1
-local MAX_UINT32 = 2^32-1
-
-local MAX_INT16 = 2^15-1
-local MIN_INT16 = -(2^15)
-local MAX_INT32 = 2^31-1
-local MIN_INT32 = -(2^31)
-
 local buffer_ext = { }
 
 function buffer_ext.put_chunk_pos(buffer, pos)
@@ -27,24 +19,24 @@ function buffer_ext.get_block_pos(buffer)
 	return { buffer:get_sint32(buffer), buffer:get_sint32(buffer), buffer:get_sint32(buffer) }
 end
 
-function buffer_ext.put_vec3f(buffer, vec)
-	buffer:put_single(vec[1])
-	buffer:put_single(vec[2])
-	buffer:put_single(vec[3])
+function buffer_ext.put_vec3f32(buffer, vec)
+	buffer:put_float32(vec[1])
+	buffer:put_float32(vec[2])
+	buffer:put_float32(vec[3])
 end
 
-function buffer_ext.get_vec3f(buffer)
-	return { buffer:get_single(), buffer:get_single(), buffer:get_single() }
+function buffer_ext.get_vec3f32(buffer)
+	return { buffer:get_float32(), buffer:get_float32(), buffer:get_float32() }
 end
 
-function buffer_ext.put_vec3d(buffer, vec)
-	buffer:put_double(vec[1])
-	buffer:put_double(vec[2])
-	buffer:put_double(vec[3])
+function buffer_ext.put_vec3f64(buffer, vec)
+	buffer:put_float64(vec[1])
+	buffer:put_float64(vec[2])
+	buffer:put_float64(vec[3])
 end
 
-function buffer_ext.get_vec3d(buffer)
-	return { buffer:get_double(), buffer:get_double(), buffer:get_double() }
+function buffer_ext.get_vec3f64(buffer)
+	return { buffer:get_float64(), buffer:get_float64(), buffer:get_float64() }
 end
 
 function buffer_ext.obtain_buffer(buffer)

@@ -7,7 +7,7 @@ local packets = { }
 function teamwise_packets_registry.get_packets()
 	if #packets == 0 then
 		for _, packetFile in ipairs(file.list(PACK_ID..":modules/packets")) do
-			table.insert(packets, packetFile:sub(1, #packetFile - 4))
+			if packetFile:starts_with("packet") then table.insert(packets, packetFile:sub(1, #packetFile - 4)) end
 		end
 	end
 

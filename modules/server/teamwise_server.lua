@@ -5,59 +5,43 @@ local server = require "packet_api:server"
 local client_handler = require "server/handling/client_handler"
 local players_data = require "players_data"
 
-local function bjsonReader(path) return bjson.frombytes(file.read_bytes(path)) end
-local function bjsonWriter(path, table) file.write_bytes(path, bjson.tobytes(table)) end
-
-local function jsonReader(path) return json.parse(file.read(path)) end
-local function jsonWriter(path, table) return file.write(path, json.tostring(table)) end
-
 local teamwise_server = { }
-
-function teamwise_server:start(settings)
-    local obj = { }
-
-    self.__index = self
-    setmetatable(obj, self)
-
-    self.playersData = players_data:new()
-    self.handlers = { }
-
-    self.settings =
-    {
-        port = constants.defaultPort,
-        chunksLoadingDistance = 5,
-        whiteListEnabled = false,
-        serverDataDirectory = pack.shared_file(PACK_ID, "server")
-    }
-
-    if settings then
-        for key, value in pairs(settings) do
-            self.settings[key] = value
-        end
-    end
-
-    file.mkdirs(self.settings.serverDataDirectory)
-
-    self:load_all_data()
-
-    if not self.globalData.defaultSpawnpoint then
-        self.globalData.defaultSpawnpoint = { player.get_spawnpoint(hud.get_player()) }
-    end
-
-    self.server = server:open(self.settings.port,
-    	function(...)
-    		return self:on_connected(...)
-    	end,
-       	function(...)
-    		self:on_disconnected(...)
-    	end
-    )
-
-    return obj
-end
 
 function teamwise_server:log(...)
     print("[voxel teamwise server]", ...)
+end
+
+function teamwise_server:get_server_file(subpath)
+    return self.settings.serverDataDirectory..'/'..subpath
+end
+
+function teamwise_server:get_client_id_by_nickname(nickname)
+    for _, clientId in ipairs(self.server:get_all_clients_ids()) do
+        if self:get_nickname(clientId) == nickname then return clientId end
+    end
+end
+
+function teamwise_server:get_nickname(clientId)
+    return player.get_name(player_compat.get_player_id(clientId))
+end
+
+function teamwise_server:close()
+    self:save_all_data()
+    self.server:close()
+end
+
+function teamwise_server:update()
+    self.server:update()
+
+    for _, clientId in ipairs(self.server:get_all_clients_ids()) do
+        self.handlers[clientId]:update()
+    end
+end
+
+function teamwise_server:tick()
+    for _, clientId in ipairs(self.server:get_all_clients_ids()) do
+        self.handlers[clientId]:tick()
+    end
 end
 
 function teamwise_server:send_packet_to_all_except(packetId, packetData, except)
@@ -66,9 +50,72 @@ function teamwise_server:send_packet_to_all_except(packetId, packetData, except)
     end
 end
 
-function teamwise_server:on_connected(server, clientId)
-	self:log("client connected to the server. id: "..clientid..", address: "..self.server:get_client_address(clientId))
+function teamwise_server:save_player_data(name)
+    if self.playersData.data[name] then
+        local folder = self:get_server_file(constants.server.playersDataFolder)
 
+        if not file.exists(folder) then file.mkdirs(folder) end
+
+        file.write_bytes(
+            self:get_server_file(folder..'/'..playerName..'.vcbjson'),
+            bjson.tobytes(self.playersData.data[name])
+        )
+    end
+end
+
+function teamwise_server:save_players_data()
+    local folder = self:get_server_file(constants.server.playersDataFolder)
+
+    if not file.exists(folder) then file.mkdirs(folder) end
+
+    for playerName, _ in pairs(self.playersData.data) do
+        self:save_player_data(playerName)
+    end
+end
+
+function teamwise_server:load_player_data(name)
+    local folder = self:get_server_file(constants.server.playersDataFolder)
+
+    if file.exists(folder) then
+        local path = self:get_server_file(folder..'/'..name..'.vcbjson')
+
+        if file.exists(path) then
+            self.playersData.data[playerName] = bjson.frombytes(file.read_bytes(path))
+        end
+    end
+end
+
+function teamwise_server:load_all_data()
+    self:load_data(bjsonReader, constants.server.globalDataFile, "globalData")
+
+    self.whitelistManager:load_data(self:get_server_file(constants.server.whiteListFile))
+    self.bansManager:load_data(self:get_server_file(constants.server.banListFile))
+    self.opsManager:load_data(self:get_server_file(constants.server.opsListFile))
+end
+
+function teamwise_server:save_all_data()
+    self:save_data(bjsonWriter, constants.server.globalDataFile, "globalData")
+
+    self.whitelistManager:save_data(self:get_server_file(constants.server.whiteListFile))
+    self.bansManager:save_data(self:get_server_file(constants.server.banListFile))
+    self.opsManager:save_data(self:get_server_file(constants.server.opsListFile))
+
+    self:save_players_data()
+end
+
+function teamwise_server:on_disconnected(server, clientId, cause)
+    local name = self:get_nickname(clientId)
+
+    self.handlers[clientId]:on_disconnected(cause)
+
+    self:save_player_data(name)
+
+    self.playersData:on_disconnected()
+
+     self.handlers[clientId] = nil
+end
+
+function teamwise_server:on_connected(server, clientId)
     self.handlers[clientId] = client_handler:new(self, clientId)
 
     return
@@ -103,196 +150,51 @@ function teamwise_server:on_connected(server, clientId)
     end
 end
 
-function teamwise_server:get_ban_reason_by_name(name)
-    return self.banList.names[name].reason
-end
+function teamwise_server:start(settings)
+    local obj = { }
 
-function teamwise_server:get_ban_reason_by_address(address)
-    return self.banList.addresses[address].reason
-end
+    self.__index = self
+    setmetatable(obj, self)
 
-function teamwise_server:is_banned_name(name)
-    return self.banList.names[name] ~= nil
-end
+    self.playersData = players_data:new()
+    self.handlers = { }
 
-function teamwise_server:is_banned_address(address)
-    return self.banList.addresses[address] ~= nil
-end
+    self.settings =
+    {
+        port = constants.defaultPort,
+        chunksLoadingDistance = 5,
+        whiteListEnabled = false,
+        serverDataDirectory = pack.shared_file(PACK_ID, "server")
+    }
 
-function teamwise_server:ban_name(name, reason)
-    if not self.banList.names[name] then
-        self.banList.names[name] = { reason = reason }
-    end
-end
-
-function teamwise_server:ban_address(address, reason)
-    if not self.banList.addresses[address] then
-        self.banList.addresses[address] = { reason = reason }
-    end
-end
-
-function teamwise_server:unban_name(name)
-    self.banList.names[name] = nil
-end
-
-function teamwise_server:unban_address(address)
-    self.banList.addresses[address] = nil
-end
-
-function teamwise_server:add_name_to_white_list(name)
-    if not table.has(self.whiteList.names, name) then
-        table.insert(self.whiteList.names, name)
-    end
-end
-
-function teamwise_server:add_address_to_white_list(address)
-    if not table.has(self.whiteList.addresses, address) then
-        table.insert(self.whiteList.addresses, address)
-    end
-end
-
-function teamwise_server:is_name_in_white_list(name)
-    return table.has(self.whiteList.names, name)
-end
-
-function teamwise_server:is_address_in_white_list(address)
-    return table.has(self.whiteList.addresses, address)
-end
-
-function teamwise_server:remove_name_from_white_list(name)
-    for i = 1, #self.whiteList.names do
-        if self.whiteList.names[i] == name then table.remove(self.whiteList.names, i) break end
-    end
-end
-
-function teamwise_server:remove_address_from_white_list(address)
-    for i = 1, #self.whiteList.addresses do
-        if self.whiteList.addresses[i] == address then table.remove(self.whiteList.addresses, i) break end
-    end
-end
-
-function teamwise_server:get_server_file(subpath)
-    return self.settings.serverDataDirectory..'/'..subpath
-end
-
-function teamwise_server:save_data(writer, path, property)
-    writer(self:get_server_file(path), self[property]))
-end
-
-function teamwise_server:load_data(reader, path, property, def)
-    local path = self:get_server_file(path)
-
-    if file.exists(path) then self[property] = reader(path)
-    else self[property] = def or { } end
-end
-
-function teamwise_server:save_player_data(name)
-    if self.playersData.data[name] then
-        local folder = self:get_server_file(constants.server.playersDataFolder)
-
-        if not file.exists(folder) then file.mkdirs(folder) end
-
-        file.write_bytes(
-            self:get_server_file(folder..'/'..playerName..'.vcbjson'),
-            bjson.tobytes(self.playersData.data[name])
-        )
-    end
-end
-
-function teamwise_server:save_players_data()
-    local folder = self:get_server_file(constants.server.playersDataFolder)
-
-    if not file.exists(folder) then file.mkdirs(folder) end
-
-    for playerName, playerData in pairs(self.playersData.data) do
-        self:save_player_data(name)
-    end
-end
-
-function teamwise_server:load_players_data()
-    local folder = self:get_server_file(constants.server.playersDataFolder)
-
-    if file.exists(folder) then
-        for _, playerDataFile in ipairs(file.list(folder)) do
-            local playerName = playerDataFile:match("([^/\\]+)%.%w+$")
-
-            self.playersData.data[playerName] = bjson.frombytes(file.read_bytes(playerDataFile))
+    if settings then
+        for key, value in pairs(settings) do
+            self.settings[key] = value
         end
     end
-end
 
-function teamwise_server:get_client_id_by_nickname(nickname)
-    for _, clientId in ipairs(self.server:get_all_clients_ids()) do
-        if self:get_nickname(clientId) == nickname then return clientId end
+    file.mkdirs(self.settings.serverDataDirectory)
+
+    self:load_all_data()
+
+    if not self.globalData.defaultSpawnpoint then
+        self.globalData.defaultSpawnpoint = { player.get_spawnpoint(hud.get_player()) }
     end
-end
 
-function teamwise_server:get_nickname(clientId)
-    return player.get_name(player_compat.get_player_id(clientId))
-end
-
-function teamwise_server:destroy_handler(handler)
-    self.handlers[handler.clientId] = nil
-end
-
-function teamwise_server:on_disconnected(server, clientId, cause)
-    local name = self:get_nickname(clientId)
-
-    self.handlers[clientId]:on_disconnected(cause)
-
-    self:save_player_data(name)
-
-    self.playersData:on_disconnected()
-
-    self:destroy_handler(clientId)
-end
-
-function teamwise_server:update()
-    self.server:update()
-
-    for _, clientId in ipairs(self.server:get_all_clients_ids()) do
-        self.handlers[clientId]:update()
-    end
-end
-
-function teamwise_server:ban_by_name(name)
-    table.insert(self.banListFile, { type = "name", name = name })
-end
-
-function teamwise_server:ban_by_address(address)
-    table.insert(self.banListFile, { type = "address", address = address })
-end
-
-function teamwise_server:load_all_data()
-    self:load_data(bjsonReader, constants.server.globalDataFile, "globalData")
-
-    self:load_data(jsonReader, constants.server.banListFile, "banList",
-        {
-            names = { },
-            addresses = { }
-        }
+    self.server = server:open(self.settings.port,
+        function(...)
+            return self:on_connected(...)
+        end,
+        function(...)
+            self:on_disconnected(...)
+        end
     )
 
-    self:load_data(jsonReader, constants.server.whiteListFile, "whiteList",
-        {
-            names = { },
-            addresses = { }
-        }
-    )
+    self.whitelistManager = whitelist_manager:new(self)
+    self.bansManager = bans_manager:new(self)
+    self.opsManager = ops_manager:new(self)
 
-    self:load_players_data()
-end
-
-function teamwise_server:save_all_data()
-    self:save_data(bjsonWriter, constants.server.globalDataFile, "globalData")
-    self:save_data(jsonWriter, constants.server.banListFile, "banList")
-    self:save_data(jsonWriter, constants.server.whiteListFile, "whiteList")
-    self:save_players_data()
-end
-
-function teamwise_server:close()
-    self:save_all_data()
-    self.server:close()
+    return obj
 end
 
 return teamwise_server

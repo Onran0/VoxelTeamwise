@@ -77,4 +77,14 @@ function chunk_util.get_chunks_positions_in_radius(cx, cz, radius)
 	return chunks, nodes
 end
 
+function chunk_util.is_block_position_inside_chunks(x, z, chunks)
+    x, z = chunk_util.block_position_to_chunk_position(x, z)
+
+    for i = 1, #chunks do
+        if x == chunks[i][1] and z == chunks[i][2] then return true end
+    end
+
+    return false
+end
+
 return chunk_util

@@ -14,7 +14,7 @@ function inventory_struct.serialize_selected_slots(inventoryId, selectedSlots, b
 	buffer:put_uint16(#selectedSlots)
 
 	for i = 1, #selectedSlots do
-		buffer:put_byte(selectedSlots[i])
+		buffer:put_uint16(selectedSlots[i])
 
 		local item, count = inventory.get(inventoryId, selectedSlots[i])
 
@@ -27,7 +27,7 @@ function inventory_struct.deserialize(buffer)
 	local slots = { }
 
 	for i = 1, buffer:get_uint16() do
-		local slotId = buffer:get_byte()
+		local slotId = buffer:get_uint16()
 		local item = buffer:get_uint16()
 		local count = buffer:get_byte()
 

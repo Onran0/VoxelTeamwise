@@ -35,7 +35,7 @@ function ping_handler:get_ping()
     return self.ping
 end
 
-function ping_handler:update()
+function ping_handler:tick()
     if self.pingTimer <= 0 then
         self.pingTimer = 15
         self:ping()
