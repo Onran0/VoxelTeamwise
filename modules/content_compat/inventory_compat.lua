@@ -54,7 +54,7 @@ local function getOwnerName(inventoryId)
 	return player.get_name(inventory_compat.get_inventory_owner_id(inventoryId))
 end
 
-function inventory_compat.set_clients_data(_clientsData) return clientsData = _clientsData end
+function inventory_compat.set_clients_data(_clientsData) clientsData = _clientsData end
 
 function inventory.remove(invid)
 	if inventory_compat.is_player_inventory(invid) then

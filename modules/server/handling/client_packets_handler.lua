@@ -1,11 +1,12 @@
 local constants = require "constants"
+
+local PACK_ID = constants.packId
+
 local player_compat = require "content_compat/player_compat"
 local chunk_util = require "util/chunk_util"
 local commands_api = require "server/api/commands_api"
 
 local client_packets_handler = { }
-
-local PACK_ID = "voxel_teamwise"
 
 local allowedPacketsBeforeLogin =
 {

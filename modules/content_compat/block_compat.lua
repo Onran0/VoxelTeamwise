@@ -11,7 +11,7 @@ function block_compat.set_callbacks(_callbacks)
 end
 
 local function callback(name, ...)
-	callbacks[name](callbacks, ...)
+	if callbacks then callbacks[name](callbacks, ...) end
 end
 
 function block.set(x, y, z, id, states, noupdate)

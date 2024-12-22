@@ -1,3 +1,5 @@
+local PACK_ID = require("constants").packId
+
 local packets_registry = "packet_api:packets_registry"
 
 local teamwise_packets_registry = { }

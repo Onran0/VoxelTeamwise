@@ -11,20 +11,16 @@ local compat_core,
 local deffered_calls = require "util/deffered_calls"
 local client_packets_handler = require "server/handling/client_packets_handler"
 local teamwise_packets_registry = require "packets/teamwise_packets_registry"
+local voxel_teamwise = require "voxel_teamwise"
 
 local client, server
 
 local installedPacks
 
 function on_world_open()
-	installedPacks = packs.get_installed()
+	installedPacks = pack.get_installed()
 
-	for i = 1, #installedPacks do
-		if installedPacks[i] == PACK_ID then
-			table.remove(installedPacks, i)
-			break
-		end
-	end
+	table.remove(installedPacks, table.index(installedPacks, PACK_ID))
 
 	teamwise_packets_registry.register_packets()
 	client_packets_handler.add_base_handlers()

@@ -21,8 +21,8 @@ end
 function ops_manager:save_data(path)
 	local text = ""
 
-    for i = 1, #data do
-        text = text..data[i]..'\n'
+    for i = 1, #self.opsList do
+        text = text..self.opsList[i]..'\n'
     end
 
     file.write(path, text)

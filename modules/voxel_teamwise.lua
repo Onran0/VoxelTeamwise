@@ -1,7 +1,10 @@
+local PACK_ID = require("constants").packId
+
 local player_compat = require "content_compat/player_compat"
 local block_compat = require "content_compat/block_compat"
 
 local teamwise_server = require "server/teamwise_server"
+local teamwise_client = require "client/teamwise_client"
 
 local voxel_teamwise = { }
 
@@ -16,7 +19,7 @@ function voxel_teamwise.get_server() return server end
 function voxel_teamwise.close_server()
 	if not server then error "server is not started" end
 
-	server:close()
+	server:close_server()
 
 	local status, result = pcall(events.emit, PACK_ID..":server.closed", server)
 
@@ -50,12 +53,15 @@ function voxel_teamwise.start_server(settings)
 	events.emit(PACK_ID..":server.started", server)
 end
 
-function voxel_teamwise.start_client(address, port)
+function voxel_teamwise.start_client(address, settings)
 	if client then error "client already started" end
 
 	if server then error(clientAndServerError) end
 
-	error "W.I.P"
+	client = teamwise_client:start(address, settings)
+
+	player_compat.set_players_data(client.playersData)
+	block_compat.set_callbacks(require("client/callbacks/blocks_callbacks"):new(client))
 
 	events.emit(PACK_ID..":client.started", client)
 end

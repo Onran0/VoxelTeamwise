@@ -1,7 +1,6 @@
 local player_compat = require "content_compat/player_compat"
 
 local client_chunks_manager = require "server/handling/client_chunks_manager"
-local client_packets_handler = require "server/handling/client_packets_handler"
 local login_handler = require "server/handling/login_handler"
 local ping_handler = require "server/handling/ping_handler"
 
@@ -23,7 +22,7 @@ function client_handler:new(teamwiseServer, clientId)
     self.loggedIn = false
     self.chunksManager = client_chunks_manager:new(self)
     self.pingHandler = ping_handler:new(self)
-    self.packetsHandler = client_packets_handler:new(self)
+    self.packetsHandler = require("server/handling/client_packets_handler"):new(self)
     self.loginHandler = login_handler:new(self)
 
 	return obj
@@ -35,7 +34,8 @@ end
 
 function client_handler:tick()
     self.server:send_packet(self.clientId, PACK_ID..":packet_world_time", world.get_day_time())
-    self:pingHandler:tick()
+
+    self.pingHandler:tick()
 
     local pid = self:get_player_id()
 

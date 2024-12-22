@@ -1,9 +1,12 @@
+local PACK_ID = require("constants").packId
+
 local constants = require "constants"
-
 local server = require "packet_api:server"
-
 local client_handler = require "server/handling/client_handler"
 local players_data = require "players_data"
+local whitelist_manager = require "server/whitelist_manager"
+local bans_manager = require "server/bans_manager"
+local ops_manager = require "server/ops_manager"
 
 local teamwise_server = { }
 
@@ -25,9 +28,9 @@ function teamwise_server:get_nickname(clientId)
     return player.get_name(player_compat.get_player_id(clientId))
 end
 
-function teamwise_server:close()
+function teamwise_server:close_server()
     self:save_all_data()
-    self.server:close()
+    self.server:close_server()
 end
 
 function teamwise_server:update()
@@ -86,7 +89,9 @@ function teamwise_server:load_player_data(name)
 end
 
 function teamwise_server:load_all_data()
-    self:load_data(bjsonReader, constants.server.globalDataFile, "globalData")
+    local globalDataPath = self:get_server_file(constants.server.globalDataFile)
+
+    self.globalData = file.exists(globalDataPath) and bjson.frombytes(file.read_bytes(globalDataPath)) or { }
 
     self.whitelistManager:load_data(self:get_server_file(constants.server.whiteListFile))
     self.bansManager:load_data(self:get_server_file(constants.server.banListFile))
@@ -94,7 +99,7 @@ function teamwise_server:load_all_data()
 end
 
 function teamwise_server:save_all_data()
-    self:save_data(bjsonWriter, constants.server.globalDataFile, "globalData")
+    file.write_bytes(self:get_server_file(constants.server.globalDataFile), bjson.tobytes(self.globalData))
 
     self.whitelistManager:save_data(self:get_server_file(constants.server.whiteListFile))
     self.bansManager:save_data(self:get_server_file(constants.server.banListFile))
@@ -110,7 +115,7 @@ function teamwise_server:on_disconnected(server, clientId, cause)
 
     self:save_player_data(name)
 
-    self.playersData:on_disconnected()
+    self.playersData:on_disconnected(name)
 
      self.handlers[clientId] = nil
 end
@@ -157,6 +162,10 @@ function teamwise_server:start(settings)
     setmetatable(obj, self)
 
     self.playersData = players_data:new()
+    self.whitelistManager = whitelist_manager:new(self)
+    self.bansManager = bans_manager:new(self)
+    self.opsManager = ops_manager:new(self)
+
     self.handlers = { }
 
     self.settings =
@@ -189,10 +198,6 @@ function teamwise_server:start(settings)
             self:on_disconnected(...)
         end
     )
-
-    self.whitelistManager = whitelist_manager:new(self)
-    self.bansManager = bans_manager:new(self)
-    self.opsManager = ops_manager:new(self)
 
     return obj
 end

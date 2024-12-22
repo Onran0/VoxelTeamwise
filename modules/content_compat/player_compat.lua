@@ -15,7 +15,7 @@ local playersList = { }
 local cidToPid = { }
 local pidToCid = { }
 
-local clientsData
+local playersData
 
 function player_compat.spawn_player(clientId, name, position, rotation, inventory)
 	local entity =
@@ -27,10 +27,10 @@ function player_compat.spawn_player(clientId, name, position, rotation, inventor
 
 	entity.transform:set_rot(math_util.rotation_matrix(rotation))
 
-	return player_compat.add_player(clientId, entity:get_uid(), name)
+	return player_compat.add_player(clientId, entity:get_uid(), name, inventory)
 end
 
-function player_compat.add_player(clientId, entityId, name)
+function player_compat.add_player(clientId, entityId, name, inventory)
 	if not entityId then error "player without entity" end
 
 	local pid = clientId + 0x02
@@ -41,7 +41,7 @@ function player_compat.add_player(clientId, entityId, name)
 	runtimePlayersData[pid] =
 	{
 		entityId = entityId,
-		inventoryId = inventory_compat.create_player_inventory(pid, data.inventoryFiller),
+		inventoryId = inventory_compat.create_player_inventory(pid, inventory),
 		name = name
 	}
 
@@ -77,14 +77,14 @@ end
 local noEmit = false
 
 local function setClientDataProperty(nickname, key, value)
-	if clientsData then
-		clientsData:set(nickname, key, value, noEmit)
+	if playersData then
+		playersData:set(nickname, key, value, noEmit)
 	end
 end
 
 local function getClientDataProperty(nickname, key)
-	if clientsData then
-		return clientsData:get(nickname, key)
+	if playersData then
+		return playersData:get(nickname, key)
 	end
 end
 
@@ -100,14 +100,14 @@ function player_compat.get_client_id(playerId) return pidToCid[playerId] end
 
 function player_compat.has_player(playerId) return runtimePlayersData[playerId] ~= nil end
 
-function player_compat.set_clients_data(_clientsData) return clientsData = _clientsData end
+function player_compat.set_players_data(_playersData) playersData = _playersData end
 
 function player_compat.get_selected_slot(playerId)
 	return getClientDataProperty(player.get_name(playerId), "selectedSlot")
 end
 
 function player_compat.set_selected_slot(playerId, selectedSlot)
-	clientsData:set(player.get_name(playerId), "selectedSlot", selectedSlot)
+	playersData:set(player.get_name(playerId), "selectedSlot", selectedSlot)
 end
 
 function player_compat.get_selected_item_id(playerId)
@@ -185,16 +185,25 @@ function player.set_vel(playerId, x, y, z)
 end
 
 function player.get_rot(playerId)
-	if player_compat.has_player(playerId) then return unpack(entities.get(player.get_entity(playerId)).transform:get_rot())
+	if player_compat.has_player(playerId) then
+		return unpack(getClientDataProperty(player.get_name(playerId), "rotation"))
 	else return _player.get_rot(playerId) end
 end
 
 function player.set_rot(playerId, x, y, z)
 	if player_compat.has_player(playerId) then
-		entities.get(player.get_entity(playerId)).transform:set_rot(math_util.rotation_matrix({ x, y, z }))
+		cameras.get(player.get_camera(playerId)):set_rot(math_util.rotation_matrix({ x, y, z }))
 
 		setClientDataProperty(player.get_name(playerId), "rotation", { x, y, z })
 	else _player.set_pos(playerId, x, y, z) end
+end
+
+function player.get_dir(playerId)
+	if player_compat.has_player(playerId) then
+		local camera = player.get_camera(playerId)
+
+		return camera and cameras.get(camera):get_front() or { 0, 0, 0 }
+	else return _player.get_dir(playerId) end
 end
 
 function player.is_flight(playerId)
@@ -253,6 +262,16 @@ end
 function player.get_entity(playerId)
 	if player_compat.has_player(playerId) then return runtimePlayersData[playerId].entityId
 	else return _player.get_entity(playerId) end
+end
+
+function player.get_camera(playerId)
+	if player_compat.has_player(playerId) then return runtimePlayersData[playerId].camera
+	else return _player.get_camera(playerId) end
+end
+
+function player.set_camera(playerId, cameraId)
+	if player_compat.has_player(playerId) then runtimePlayersData[playerId].camera = cameraId
+	else _player.set_camera(playerId, cameraId) end
 end
 
 return player_compat

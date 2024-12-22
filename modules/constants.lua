@@ -1,5 +1,6 @@
 return
 {
+	packId = "voxel_teamwise",
 	protocolVersion = 0,
 	defaultPort = 9600,
 

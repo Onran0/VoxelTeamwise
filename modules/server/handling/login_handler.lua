@@ -50,6 +50,7 @@ function login_handler:handle_handshake(packet)
 	        		indices = content.get_indices()
 	        	}
         	)
+        end
     end
 end
 
