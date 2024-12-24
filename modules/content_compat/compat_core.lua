@@ -2,6 +2,10 @@ local compat_core = { }
 
 local originals = { }
 
+function compat_core.get_original(name)
+	return originals[name]
+end
+
 function compat_core.copy_library(name)
 	local copy = table.copy(_G[name])
 

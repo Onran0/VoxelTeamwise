@@ -15,6 +15,7 @@ function login_handler:new(handler)
     self.clientId = handler.clientId
     self.playersData = handler.playersData
     self.identified = false
+    self.contentMatches = false
 
 	return obj
 end
@@ -32,9 +33,9 @@ function login_handler:handle_handshake(packet)
         local address = self.server:get_client_address(self.clientId)
 
         if self.teamwiseServer:is_banned_name(packet.nickname) then
-            self.clientHandler:kick("banned by name: "..self.teamwiseServer:get_ban_reason_by_name(packet.nickname))
+            self.clientHandler:kick("banned for the following reason: "..self.teamwiseServer:get_ban_reason_by_name(packet.nickname))
         elseif self.teamwiseServer:is_banned_address(address) then
-            self.clientHandler:kick("banned by address: "..self.teamwiseServer:get_ban_reason_by_address(address))
+            self.clientHandler:kick("banned for the following reason: "..self.teamwiseServer:get_ban_reason_by_address(address))
         elseif
             self.teamwiseServer.settings.whiteListEnabled and
             not self.teamwiseServer:is_name_in_white_list(packet.nickname) and
@@ -44,12 +45,7 @@ function login_handler:handle_handshake(packet)
         else
         	self.identified = true
 
-        	self.server:send_packet(self.clientId, PACK_ID..":packet_identified",
-	        	{
-	        		clientId = self.clientId,
-	        		indices = content.get_indices()
-	        	}
-        	)
+        	self.server:send_packet(self.clientId, PACK_ID..":packet_identified", self.clientId)
         end
     end
 end
@@ -132,40 +128,74 @@ function login_handler:handle_content_info(clientContent)
 		    self.server:send_packet(self.clientId, PACK_ID..":packet_incompatible_content", incompatibleContent)
 		    self.server:close_connection(self.clientId, "incompatible content")
 		else
-	        self.clientHandler.loggedIn = true
+			self.contentMatches = true
 
-	        local nickname = packet.nickname
-
-	        self.teamwiseServer:load_player_data(nickname)
-
-	        local position = self.playersData:get(nickname, "position", self.teamwiseServer.globalData.defaultSpawnpoint)
-	        local rotation = self.playersData:get(nickname, "rotation", { 0, 0, 0 })
-	        local inventory = self.playersData:get(nickname, "inventory", { })
-
-	        player_compat.spawn_player(
-	            self.clientId,
-	            nickname,
-	            position,
-	            rotation,
-	            inventory
-	        )
-
-	        local pid = self.clientHandler:get_player_id()
-
-	        local selectedItemId = player_compat.get_selected_item_id(pid)
-
-	        self.server:send_packet_to_all(PACK_ID..":packet_player_joined",
-	            {
-	                clientId = self.clientId,
-	                nickname = packet.nickname,
-	                position = position,
-	                rotation = rotation,
-	                selectedItemId = selectedItemId
-	            }
-	        )
-
-	        self.clientHandler:on_logged_in()
+			self.server:send_packet(self.clientId, PACK_ID..":packet_indices_sync", content.get_indices())
 		end
+	end
+end
+
+function login_handler:on_indices_synced()
+	if not self.identified then
+		self.clientHandler:kick("identification first")
+	elseif not self.contentMatches then
+		self.clientHandler:kick("send content info first")
+	else
+	    self.clientHandler.loggedIn = true
+
+	    local nickname = packet.nickname
+
+	    self.teamwiseServer:load_player_data(nickname)
+
+	    local position = self.playersData:get(nickname, "position", self.teamwiseServer.globalData.defaultSpawnpoint)
+	    local rotation = self.playersData:get(nickname, "rotation", { 0, 0, 0 })
+	    local inventory = self.playersData:get(nickname, "inventory", { })
+
+	    player_compat.spawn_player(
+	        self.clientId,
+	        nickname,
+	        position,
+	        rotation,
+	        inventory
+	    )
+
+	    local pid = self.clientHandler:get_player_id()
+
+	    local selectedItemId = player_compat.get_selected_item_id(pid)
+
+	    self.server:send_packet_to_all(PACK_ID..":packet_player_joined",
+	        {
+	            clientId = self.clientId,
+	            nickname = packet.nickname,
+	            position = position,
+	            rotation = rotation,
+	            selectedItemId = selectedItemId
+	        }
+	    )
+
+	    local clients = self.server:get_all_clients_ids()
+
+	    for i = 1, #clients do
+	    	local clientId = clients[i]
+
+	    	if self.clientId ~= clientId then
+	    		local playerId = player_compat.get_player_id(clientId)
+
+	    		self.server:send_packet(self.clientId, PACK_ID..":packet_player_joined",
+	    			{
+	    				clientId = clientId,
+	    				nickname = player.get_name(playerId),
+	    				position = { player.get_pos(playerId) },
+	    				rotation = { player.get_rot(playerId) },
+	    				selectedItemId = player_compat.get_selected_item_id(playerId)
+	    			}
+	    		)
+	    	end
+	    end
+
+	    self.clientHandler:synchronize_inventory(inventory)
+
+	    self.clientHandler:on_logged_in()
 	end
 end
 

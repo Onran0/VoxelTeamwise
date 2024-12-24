@@ -68,4 +68,14 @@ function players_data:on_disconnected(nickname)
 	self.listenersByName[nickname] = nil
 end
 
+function players_data:get_players_list()
+	local players = { }
+
+	for player, _ in pairs(self.data) do
+		table.insert(players, player)
+	end
+
+	return players
+end
+
 return players_data

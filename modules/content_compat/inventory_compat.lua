@@ -12,7 +12,11 @@ local playerIdToInventoryIdTable = { }
 
 local inventoryIdToPlayerIdTable = { }
 
-local clientsData
+local playersData
+
+local localPlayerPid, localPlayerInventoryId
+
+local noEmit
 
 function inventory_compat.create_player_inventory(playerId, inventoryContent)
 	if inventories[playerId] then error "inventory for this player has already been added" end
@@ -39,22 +43,32 @@ function inventory_compat.remove_player_inventory(playerId)
 end
 
 function inventory_compat.get_player_inventory(playerId)
-	return playerIdToInventoryIdTable[playerId]
+	return localPlayerPid == playerId and localPlayerInventoryId or playerIdToInventoryIdTable[playerId]
 end
 
 function inventory_compat.is_player_inventory(inventoryId)
-	return inventory_compat.get_inventory_owner(inventoryId) ~= nil
+	return inventory_compat.get_inventory_owner_id(inventoryId) ~= nil
 end
 
 function inventory_compat.get_inventory_owner_id(inventoryId)
-	return inventoryIdToPlayerIdTable[inventoryId]
+	return inventoryId == localPlayerInventoryId and localPlayerPid or inventoryIdToPlayerIdTable[inventoryId]
+end
+
+function inventory_compat.set_local_player_id(playerId)
+	localPlayerPid = playerId
+
+	localPlayerInventoryId = player.get_inventory(playerId)
+end
+
+function inventory_compat.set_enabled_emit(emit)
+	noEmit = not emit
 end
 
 local function getOwnerName(inventoryId)
 	return player.get_name(inventory_compat.get_inventory_owner_id(inventoryId))
 end
 
-function inventory_compat.set_clients_data(_clientsData) clientsData = _clientsData end
+function inventory_compat.set_players_data(_playersData) playersData = _playersData end
 
 function inventory.remove(invid)
 	if inventory_compat.is_player_inventory(invid) then
@@ -74,7 +88,7 @@ end
 
 local function updateInventory(invid)
 	if inventory_compat.is_player_inventory(invid) then
-		clientsData:set(getOwnerName(invid), "inventory", inventory_struct.to_inventory_struct(invid))
+		playersData:set(getOwnerName(invid), "inventory", inventory_struct.to_inventory_struct(invid), noEmit)
 	end
 end
 

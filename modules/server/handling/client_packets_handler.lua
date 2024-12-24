@@ -12,7 +12,8 @@ local allowedPacketsBeforeLogin =
 {
 	PACK_ID..":packet_handshake",
     PACK_ID..":packet_content_info",
-	PACK_ID..":packet_ping"
+	PACK_ID..":packet_ping",
+    PACK_ID..":packet_indices_synced",
 }
 
 local teamwise_packets_registry = require "packets/teamwise_packets_registry"
@@ -28,7 +29,6 @@ function client_packets_handler:new(handler)
     self.server = handler.server
     self.clientId = handler.clientId
     self.playersData = handler.playersData
-    self.commonDisconnect = false
     self.chunksManager = handler.chunksManager
     self.loginHandler = handler.loginHandler
 
@@ -49,6 +49,10 @@ end
 
 function client_packets_handler:handle_packet_content_info(packet)
     self.loginHandler:handle_content_info(packet)
+end
+
+function client_packets_handler:handle_packet_indices_synced(packet)
+    self.loginHandler:on_indices_synced()
 end
 
 function client_packets_handler:handle_packet_disconnect()

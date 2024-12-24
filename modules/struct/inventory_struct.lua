@@ -72,4 +72,18 @@ function inventory_struct.deserialize_and_push(buffer, inventoryId)
 	return slots
 end
 
+function inventory_struct.get_changed_slots(oldInventory, newInventory)
+    local changedSlots = { }
+
+    for slotId, slotData in pairs(newInventory) do
+         local oldSlotData = oldInventory[slotId]
+
+         if not oldSlotData or oldSlotData.item ~= slotData.item or oldSlotData.count ~= slotData.count then
+            table.insert(changedSlots, slotId)
+        end
+    end
+
+    return changedSlots
+end
+
 return inventory_struct

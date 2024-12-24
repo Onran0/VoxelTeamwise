@@ -1,5 +1,7 @@
-local player_compat = require "content_compat/player_compat"
+local PACK_ID = require("constants").packId
 
+local player_compat = require "content_compat/player_compat"
+local inventory_struct = require "struct/inventory_struct"
 local client_chunks_manager = require "server/handling/client_chunks_manager"
 local login_handler = require "server/handling/login_handler"
 local ping_handler = require "server/handling/ping_handler"
@@ -95,7 +97,7 @@ end
 function client_handler:kick(reason, byError)
     self.commonDisconnect = not byError
     self.server:send_packet(self.clientId, PACK_ID..":packet_kick", reason)
-    self.server:close_connection(self.clientId, "kicked: "..reason)
+    self.server:close_connection(self.clientId, "kicked out for the reason: "..reason)
 end
 
 function client_handler:send_packet_to_players_in_loaded_area(packetId, packetData, except, includeSelf)
@@ -112,7 +114,24 @@ function client_handler:send_packet_to_players_in_loaded_area(packetId, packetDa
     end
 end
 
-function client_handler.on_logged_in()
+function client_handler:synchronize_inventory(inventory)
+    if not inventory then inventory = self.playersData:get(self:get_nickname(), "inventory") end
+
+    if self.oldInventory ~= inventory then
+        local changedSlots = inventory_struct.get_changed_slots(self.oldInventory, inventory)
+
+        self.oldInventory = inventory
+
+        self.server:send_packet(self.clientId, PACK_ID..":packet_player_inventory_changed",
+            {
+                inventoryId = player.get_inventory(self:get_player_id()),
+                changedSlots = changedSlots
+            }
+        )
+    end
+end
+
+function client_handler:on_logged_in()
     local nickname = self:get_nickname()
 
     self.teamwiseServer:log(
@@ -140,6 +159,12 @@ function client_handler.on_logged_in()
                     rotation = rotation
                 }
             )
+        end
+    )
+
+    self.playersData:add_property_listener(nickname, "inventory",
+        function(inventory)
+            self:synchronize_inventory(inventory)
         end
     )
 end

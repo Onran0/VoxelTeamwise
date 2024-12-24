@@ -46,6 +46,12 @@ end
 
 function bans_manager:ban_name(name, reason)
     if ban(self.data.names, name, reason) then
+        local cid = self.server:get_client_id_by_nickname(name)
+
+        if cid then
+            self.server.handlers[cid]:kick("banned for the following reason: "..name)
+        end
+
         self.server:log("player with the nickname '"..name.."' was banned for the following reason: "..reason)
     end
 end

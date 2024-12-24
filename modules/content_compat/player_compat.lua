@@ -15,6 +15,8 @@ local playersList = { }
 local cidToPid = { }
 local pidToCid = { }
 
+local localPlayerCid
+
 local playersData
 
 function player_compat.spawn_player(clientId, name, position, rotation, inventory)
@@ -69,6 +71,8 @@ function player_compat.remove_player(pid)
 end
 
 function player_compat.remove_all()
+	localPlayerCid = nil
+
 	for _, pid in ipairs(playersList) do
 		player_compat.remove_player(pid)
 	end
@@ -94,9 +98,15 @@ end
 
 function player_compat.get_players_list() return playersList end
 
-function player_compat.get_player_id(clientId) return cidToPid[clientId] end
+function player_compat.set_local_player_client_id(clientId) localPlayerCid = clientId end
 
-function player_compat.get_client_id(playerId) return pidToCid[playerId] end
+function player_compat.get_player_id(clientId)
+	return clientId ~= localPlayerCid and cidToPid[clientId] or hud.get_player()
+end
+
+function player_compat.get_client_id(playerId)
+	return playerId == hud.get_player() and localPlayerCid or pidToCid[playerId]
+end
 
 function player_compat.has_player(playerId) return runtimePlayersData[playerId] ~= nil end
 
@@ -110,10 +120,14 @@ function player_compat.set_selected_slot(playerId, selectedSlot)
 	playersData:set(player.get_name(playerId), "selectedSlot", selectedSlot)
 end
 
+function player_compat.set_selected_item_id(playerId, itemId)
+	playersData:set(player.get_name(playerId), "selectedItem", itemId)
+end
+
 function player_compat.get_selected_item_id(playerId)
 	local slotId = player_compat.get_selected_slot(playerId)
 
-	if not slotId then return 0
+	if not slotId then return playersData:get(player.get_name(playerId), "selectedItem", 0)
 	else
 		local itemId = inventory.get(player.get_inventory(playerId), slotId)
 
@@ -192,7 +206,9 @@ end
 
 function player.set_rot(playerId, x, y, z)
 	if player_compat.has_player(playerId) then
-		cameras.get(player.get_camera(playerId)):set_rot(math_util.rotation_matrix({ x, y, z }))
+		local camera = player.get_camera(playerId)
+
+		if camera then cameras.get(camera):set_rot(math_util.rotation_matrix({ x, y, z }))
 
 		setClientDataProperty(player.get_name(playerId), "rotation", { x, y, z })
 	else _player.set_pos(playerId, x, y, z) end

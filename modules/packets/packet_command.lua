@@ -1,7 +1,7 @@
 local packet_command = { }
 
-function packet_command.write(command, buffer)
-	buffer:put_string(command)
+function packet_command.write(prompt, buffer)
+	buffer:put_string(prompt)
 end
 
 function packet_command.read(buffer)

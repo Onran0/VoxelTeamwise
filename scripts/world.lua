@@ -1,12 +1,16 @@
 local compat_core,
 	  player_compat,
 	  inventory_compat,
-	  block_compat
+	  block_compat,
+	  console_compat
 	  =
 	  require "content_compat/compat_core",
 	  require "content_compat/player_compat",
 	  require "content_compat/inventory_compat",
-	  require "content_compat/block_compat"
+	  require "content_compat/block_compat",
+	  require "content_compat/console_compat"
+
+local constants = require "constants"
 
 local deffered_calls = require "util/deffered_calls"
 local client_packets_handler = require "server/handling/client_packets_handler"
@@ -50,6 +54,20 @@ function on_world_open()
 			core.close_world(true)
 		end
 	)
+
+	if not file.exists(constants.internalDirectoryPath) then
+		file.mkdirs(constants.internalDirectoryPath)
+	else
+		local reconnectSettingsPath = constants.internalDirectoryPath..constants.client.reconnectSettingsFiles
+
+		if file.exists(reconnectSettingsPath) then
+			local reconnectSettings = json.parse(file.read(reconnectSettingsPath))
+
+			file.remove(reconnectSettingsPath)
+
+			voxel_teamwise.start_client(reconnectSettings.address, reconnectSettings.settings)
+		end
+	end
 end
 
 function on_world_quit()

@@ -6,12 +6,18 @@ local block_compat = { }
 
 local callbacks
 
+local emit = true
+
 function block_compat.set_callbacks(_callbacks)
 	callbacks = _callbacks
 end
 
+function block_compat.set_enabled_emit(_emit)
+	emit = _emit
+end
+
 local function callback(name, ...)
-	if callbacks then callbacks[name](callbacks, ...) end
+	if emit and callbacks and callbacks[name] then callbacks[name](callbacks, ...) end
 end
 
 function block.set(x, y, z, id, states, noupdate)

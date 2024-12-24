@@ -11,10 +11,7 @@ function packet_player_inventory_changed.write(data, buffer)
 end
 
 function packet_player_inventory_changed.read(buffer)
-	return
-	{
-		inventory = inventory_struct.deserialize(buffer)
-	}
+	return inventory_struct.deserialize(buffer)
 end
 
 return packet_player_inventory_changed

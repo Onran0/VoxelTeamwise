@@ -1,3 +1,5 @@
+local PACK_ID = require("constants").packId
+
 local ping_handler = { }
 
 function ping_handler:new(handler)
@@ -7,7 +9,7 @@ function ping_handler:new(handler)
     setmetatable(obj, self)
 
     self.clientHandler = handler
-    self.server = handler.teamwiseServer.server
+    self.server = handler.server
     self.clientId = handler.clientId
     self.ping = -1
     self.pingTimer = 0

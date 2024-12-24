@@ -33,6 +33,26 @@ function base_commands.add_commands()
 	-- Commands for issuing/removing operator status
 
 	console.add_command(
+		"kick nickname:str reason:str",
+		"Kicks a player from the server",
+		commands_api.wrap_operator_command(
+			function(args)
+				local teamwiseServer = voxel_teamwise:get_server()
+
+				local cid = teamwiseServer:get_client_id_by_nickname(args[1])
+
+				if not cid then
+					return "player with nickname '"..args[1].."' is not connected to the server at the moment"
+				end
+
+				teamwiseServer.handlers[cid]:kick(args[2])
+
+				return "player with the nickname '"..args[1].."' was successfully kicked from the server for the following reason: "..args[2]
+			end
+		)
+	)
+
+	console.add_command(
 		"op nickname:str",
 		"Assigns operator status to the player",
 		commands_api.wrap_operator_command(

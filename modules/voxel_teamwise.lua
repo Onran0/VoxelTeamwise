@@ -1,6 +1,8 @@
 local PACK_ID = require("constants").packId
 
+local world_util = require "util/world_util"
 local player_compat = require "content_compat/player_compat"
+local inventory_compat = require "content_compat/inventory_compat"
 local block_compat = require "content_compat/block_compat"
 
 local teamwise_server = require "server/teamwise_server"
@@ -19,7 +21,7 @@ function voxel_teamwise.get_server() return server end
 function voxel_teamwise.close_server()
 	if not server then error "server is not started" end
 
-	server:close_server()
+	if server:is_running() then server:close_server() end
 
 	local status, result = pcall(events.emit, PACK_ID..":server.closed", server)
 
@@ -31,7 +33,7 @@ end
 function voxel_teamwise.close_client()
 	if not client then error "client is not started" end
 
-	client:disconnect()
+	if client:is_connected() then client:disconnect() end
 
 	local status, result = pcall(events.emit, PACK_ID..":client.closed", client)
 
@@ -48,6 +50,7 @@ function voxel_teamwise.start_server(settings)
 	server = teamwise_server:start(settings)
 
 	player_compat.set_players_data(server.playersData)
+	inventory_compat.set_players_data(server.playersData)
 	block_compat.set_callbacks(require("server/callbacks/blocks_callbacks"):new(server))
 
 	events.emit(PACK_ID..":server.started", server)
@@ -58,12 +61,27 @@ function voxel_teamwise.start_client(address, settings)
 
 	if server then error(clientAndServerError) end
 
-	client = teamwise_client:start(address, settings)
+	local mpWorldName = constants.client.multiplayerWorldName
 
-	player_compat.set_players_data(client.playersData)
-	block_compat.set_callbacks(require("client/callbacks/blocks_callbacks"):new(client))
+	if world_util.get_world_name() ~= mpWorldName then
+		if world_util.has_world(mpWorldName) then
+			core.delete_world(mpWorldName)
+		end
 
-	events.emit(PACK_ID..":client.started", client)
+		teamwise_client.save_connect_settings(address, settings)
+
+		core.close_world(true)
+
+		core.new_world(mpWorldName, 0, "core:default")
+	else
+		client = teamwise_client:start(address, settings)
+
+		player_compat.set_players_data(client.playersData)
+		inventory_compat.set_players_data(client.playersData)
+		block_compat.set_callbacks(require("client/callbacks/blocks_callbacks"):new(client))
+
+		events.emit(PACK_ID..":client.started", client)
+	end
 end
 
 function voxel_teamwise.close_client_or_server()

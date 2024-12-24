@@ -14,6 +14,10 @@ function teamwise_server:log(...)
     print("[voxel teamwise server]", ...)
 end
 
+function teamwise_server:is_running()
+    return self.isRunning
+end
+
 function teamwise_server:get_server_file(subpath)
     return self.settings.serverDataDirectory..'/'..subpath
 end
@@ -30,7 +34,9 @@ end
 
 function teamwise_server:close_server()
     self:save_all_data()
+    self.isRunning = false
     self.server:close_server()
+    require("voxel_teamwise").close_server()
 end
 
 function teamwise_server:update()
@@ -198,6 +204,8 @@ function teamwise_server:start(settings)
             self:on_disconnected(...)
         end
     )
+
+    sself.isRunning = true
 
     return obj
 end
